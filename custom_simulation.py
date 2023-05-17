@@ -6,7 +6,7 @@ parameters = Parameter()
 import time 
 
 class CustomSimulation:
-    def __init__(self, root_folder, surface_instance, rois_dict, stim_values, b_values = [5], interstimulusT_values = [1e9]):   
+    def __init__(self, root_folder, surface_instance, rois_dict, stim_values, b_values = [5], interstimulusT_values = [1e9], isIntNoise = True, isWeightNoise = True):   
         '''
         This is a custom simulation class that helps to minimise the amount of code in the main ipynb file when
         running multiple simulation with different paramaters. 
@@ -18,6 +18,9 @@ class CustomSimulation:
         param b_values (list): list of b_values which are frequency adapatation parameter.
         param internstimulus_T_values (list): list of interstimulus_T values in [ms]. 
         interstimulus_T values is set to 1e9 by default to ensure that only one stimulus is simulated.
+        paramm isIntNoise (bool): False to disable integrator noise which is 
+        'nsig':[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0] by default.
+        param isWeightNoise (bool) : False to disable weigth noise in the model. Default: 1e-4
         '''
         # Prepare surface plot:
         self.root_folder = root_folder
@@ -37,6 +40,8 @@ class CustomSimulation:
         self.stimvals = stim_values # Stimulus strength  ,1e-4, 1e-3
         self.interstim_Ts = interstimulusT_values # Interstimulus interval [ms]
         self.ROIs = list(rois_dict.keys())
+        self.isIntNoise = isIntNoise
+        self.isWeightNoise = isWeightNoise
         
         # Init plot variables
         self.FR_exc = []
@@ -54,7 +59,7 @@ class CustomSimulation:
                               parameters.parameter_monitor)
 
         
-    def update_simulator_param(self):
+    def update_simulator_param(self, stim_param):
         '''
         Re-update the default simulator
         '''
@@ -64,7 +69,7 @@ class CustomSimulation:
                                parameters.parameter_coupling,
                                parameters.parameter_integrator,
                                parameters.parameter_monitor,
-                               parameter_stimulation=parameters.parameter_stimulus)
+                               parameter_stimulation = stim_param)
         
   
     
@@ -81,8 +86,13 @@ class CustomSimulation:
         parameters.parameter_model['b_e'] = b_val
         parameters.parameter_model['external_input_ex_ex']= self.Iext
         parameters.parameter_model['external_input_in_ex']= self.Iext
+        if not self.isIntNoise:
+            parameters.parameter_integrator['noise_parameter'] = {'nsig':[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                                                                  'ntau':0.0,
+                                                                  'dt': 0.1}
         #parameters.parameter_model['T']= interstimulus_T # Time constant of the model [ms]; default = 5
-
+        if not self.isWeightNoise:
+            parameters.parameter_model['weight_noise'] = 0
         
         parameters.parameter_stimulus["tau"]= self.stimdur # Stimulus duration [ms]
         parameters.parameter_stimulus["T"]= interstimulus_T # Interstimulus interval [ms]
@@ -99,7 +109,7 @@ class CustomSimulation:
         parameters.parameter_simulation['path_result'] = (f'{self.root_folder}/b{b_val}_stim{stim_val}' + 
                                                           f'_T{interstimulus_T}_{stim_region_name}')
         # Update simulation with previously defined parameters and modifcations
-        self.simulator = self.update_simulator_param()
+        self.simulator = self.update_simulator_param(parameters.parameter_stimulus)
         
         if stim_val:
             print(f"Stim for {parameters.parameter_stimulus['tau']} ms, " +
@@ -168,8 +178,10 @@ class CustomSimulation:
                                               color = 'SteelBlue') #[times, regions]
                     axes[simnum, 0].set_xlabel('Time (s)')
                     axes[simnum, 0].set_ylabel('Firing rate (Hz)')
-                    axes[simnum, 0].set_title(f'{target_region_name} with interstim {interstim_T} and stimval {stimval}')
-                    axes[simnum, 0].set_ylim([0, 25])
+#                     axes[simnum, 0].set_title(f'{target_region_name} with interstim {interstim_T} and stimval {stimval}')
+                    axes[simnum, 0].set_title(f'{target_region_name} with stimval {stimval}')
+
+                    axes[simnum, 0].set_ylim([0, 100])
                     axes[simnum, 0].legend([Li[0], Le[0]], ['Inh.','Exc.'], loc = 'best')
                     axes[simnum, 1].plot(self.time_s, self.Ad_exc[simnum][:, target_region_id], color = 'goldenrod') #[times, regions]
                     axes[simnum, 1].set_xlabel('Time (s)')
