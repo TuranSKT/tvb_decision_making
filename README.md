@@ -1,4 +1,4 @@
-# tvb_decision_making
+# Simulating Decision-Making Paradigms in the Macaque Auditory Cortex using The Virtual Brain: An Analysis of Cortical Column Dynamics and Stimulus-Driven Neural Activity
 
 
 The objective of this manuscript is to simulate a decision-making paradigm in the macaque primary auditory cortex (A1) utilizing the computational framework of The Virtual Brain (TVB). This study builds upon the foundational work conducted by E. Baspinar and colleagues, adapting their existing model into the TVB platform.
