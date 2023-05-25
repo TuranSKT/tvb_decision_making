@@ -19,12 +19,12 @@ def toZip(folder_path, zip_path):
                 
 def are_signals_similar(series1, series2, threshold = None):
     '''
-    Compare two timeseries using MSE given as threshold
+    Compare two timeseries using MSE given as threshold.
     
-    param series1 (array): inh or exb timeseries i.e result of a TVB simulation
-    param series2 (array): inh or exb timeseries i.e result of a TVB simulation
+    param series1 (array): inh or exb timeseries i.e result of a TVB simulation.
+    param series2 (array): inh or exb timeseries i.e result of a TVB simulation.
     threshold (int): if set to None, this function will only print MSE result.
-    This helps to have a range of value to set the threshold
+    This helps to have a range of value to set the threshold.
     '''
     mse = mean_squared_error(series1, series2)
     if threshold is not None:
@@ -36,6 +36,12 @@ def are_signals_similar(series1, series2, threshold = None):
         print("MSE:", np.sqrt(mse))    
         
 def find_max_value(timeseries1, timeseries2):
+    '''
+    Find and return the max value from both timeseries1 and timeseries2.
+    
+    param timeseries1 (list): inh or exc firing output for instance.
+    param timeseries2 (list): inh or exc firing output for instance.
+    '''
     # Combine the two time series
     combined_series = timeseries1 + timeseries2
     # Find the maximum value
