@@ -4,9 +4,10 @@ import numpy as np
 from tvb_model_reference.simulation_file.parameter.parameter_macaque import Parameter
 parameters = Parameter()
 import time 
+from utility import find_max_value
 
 class CustomSimulation:
-    def __init__(self, root_folder, surface_instance, rois_dict, stim_values, b_values = [5], interstimulusT_values = [1e9], isIntNoise = True, isWeightNoise = True):   
+    def __init__(self, root_folder, surface_instance, rois_dict, stim_values, b_values = [5], isIntNoise = True, isWeightNoise = True):   
         '''
         This is a custom simulation class that helps to minimise the amount of code in the main ipynb file when
         running multiple simulation with different paramaters. 
@@ -31,19 +32,20 @@ class CustomSimulation:
         self.run_sim = 5000.0 # ms, length of the simulation default:5000.0
         self.cut_transient = 2000.0 # ms, length of the discarded initial segment; default:2000.0
         self.Iext = 0.000315 # External input
-
+     
         # Set the parameters of the stimulus (choose stimval = 0 to simulate spontaneous activity)
         self.stimdur = 50 # Duration of the stimulus [ms]
         self.stimtime_mean = 2500. # Time after simulation start (it will be shufled) [ms]
         self.bvals = b_values # List of values of adaptation strength which will vary the brain state
         self.simname = ['b5']
         self.stimvals = stim_values # Stimulus strength  ,1e-4, 1e-3
-        self.interstim_Ts = interstimulusT_values # Interstimulus interval [ms]
+        self.interstim_T = [1e9] # Interstimulus interval [ms]
         self.ROIs = list(rois_dict.keys())
         self.isIntNoise = isIntNoise
         self.isWeightNoise = isWeightNoise
         
         # Init plot variables
+        self.ylim = 100
         self.FR_exc = []
         self.FR_inh = []
         self.Ad_exc = []
@@ -57,8 +59,18 @@ class CustomSimulation:
                               parameters.parameter_coupling,
                               parameters.parameter_integrator,
                               parameters.parameter_monitor)
+    
+    def update_ylim(self, ylim):
+        if ylim > self.ylim: 
+            self.ylim = ylim
+         
+    def get_signals(self, target_id):
+        time_series_dict = {}
+        for i, stimval in enumerate(self.stimvals):
+            time_series_dict[stimval] = self.FR_inh[i][:, target_id]
+        return time_series_dict
 
-        
+
     def update_simulator_param(self, stim_param):
         '''
         Re-update the default simulator
@@ -73,7 +85,7 @@ class CustomSimulation:
         
   
     
-    def single_simulation(self, b_val, stim_val, interstimulus_T, stimulus_region_id):
+    def single_simulation(self, b_val, stim_val, stimulus_region_id):
         '''
         Run a single simulation for a given b_val, stim_val, interstimulus_T, stimulus_region_id (and not list of values)
         
@@ -84,8 +96,8 @@ class CustomSimulation:
         '''
         stim_region_name = self.surface_instance.region_name_finder(stimulus_region_id)
         parameters.parameter_model['b_e'] = b_val
-        parameters.parameter_model['external_input_ex_ex']= self.Iext
-        parameters.parameter_model['external_input_in_ex']= self.Iext
+        parameters.parameter_model['external_input_ex_ex'] = self.Iext
+        parameters.parameter_model['external_input_in_ex'] = self.Iext
         if not self.isIntNoise:
             parameters.parameter_integrator['noise_parameter'] = {'nsig':[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                                                                   'ntau':0.0,
@@ -94,26 +106,26 @@ class CustomSimulation:
         if not self.isWeightNoise:
             parameters.parameter_model['weight_noise'] = 0
         
-        parameters.parameter_stimulus["tau"]= self.stimdur # Stimulus duration [ms]
-        parameters.parameter_stimulus["T"]= interstimulus_T # Interstimulus interval [ms]
-        parameters.parameter_stimulus["variables"]=[0] # Variable to kick
+        parameters.parameter_stimulus["tau"] = self.stimdur # Stimulus duration [ms]
+        parameters.parameter_stimulus["T"] = self.interstim_T # Interstimulus interval [ms]
+        parameters.parameter_stimulus["variables"] = [0] # Variable to kick
         
         weight = list(np.zeros(self.simulator.number_of_nodes))
         weight[stimulus_region_id] = stim_val # Region and stimulation strength of the region 0 
-        parameters.parameter_stimulus["weights"]= weight
+        parameters.parameter_stimulus["weights"] =  weight
 
-        parameters.parameter_stimulus['onset'] = self.cut_transient + 0.5*(self.run_sim-self.cut_transient)
+        parameters.parameter_stimulus['onset'] = self.cut_transient + 0.5 * (self.run_sim-self.cut_transient)
         stim_time = parameters.parameter_stimulus['onset']
         stim_steps = stim_time * 10 # Number of steps until stimulus
 
         parameters.parameter_simulation['path_result'] = (f'{self.root_folder}/b{b_val}_stim{stim_val}' + 
-                                                          f'_T{interstimulus_T}_{stim_region_name}')
+                                                          f'_{stim_region_name}')
         # Update simulation with previously defined parameters and modifcations
         self.simulator = self.update_simulator_param(parameters.parameter_stimulus)
         
         if stim_val:
             print(f"Stim for {parameters.parameter_stimulus['tau']} ms, " +
-                  f"{stim_val} nS, b_val = {b_val}, interstim {interstimulus_T} mS in the {stim_region_name}")
+                  f"{stim_val} nS, b_val = {b_val}, interstim {self.interstim_T} mS in the {stim_region_name}")
                   
             tools.run_simulation(self.simulator,
                                  self.run_sim,                            
@@ -130,9 +142,8 @@ class CustomSimulation:
         for roi in self.ROIs: # Loop through all ROIs
             id_region = self.surface_instance.id_finder(roi)       
             for stim_val in self.stimvals: # Loop through all stimulus strengths
-                for interstim_T in self.interstim_Ts: # Loop through all inter-stimulus intervals
-                    for bval in self.bvals: # Loop through all b_values
-                        self.single_simulation(bval, stim_val, interstim_T, id_region)
+                for bval in self.bvals: # Loop through all b_values
+                    self.single_simulation(bval, stim_val, id_region)
         end_time = time.time()
         elapsed_time = end_time - start_time
         print(f"Simulation took {elapsed_time:.2f} seconds to complete.")
@@ -146,50 +157,56 @@ class CustomSimulation:
         for roi in self.ROIs: # Loop through all ROIs
             id_region = self.surface_instance.id_finder(roi)       
             for stim_val in self.stimvals: # Loop through all stimulus strengths
-                for interstim_T in self.interstim_Ts: # Loop through all inter-stimulus intervals
-                    for bval in self.bvals: # Loop through all b_values
-                        '''load result'''
-                        sim_name = f'b{bval}_stim{stim_val}_T{interstim_T}_{roi}'
-                        self.sim_names.append(sim_name)
-                        print ('... loading file: ' + sim_name)       
-                        result = tools.get_result(self.root_folder + "/" + sim_name, self.cut_transient, self.run_sim)[0]
-                        self.time_s = result[0] * 1e-3 # From ms to sec
-                        self.FR_exc.append(result[1][:,0,:] * 1e3) # From KHz to Hz; Excitatory firing rate
-                        self.FR_inh.append(result[1][:,1,:] * 1e3) # From KHz to Hz; Inhibitory firing rate
-                        self.Ad_exc.append(result[1][:,5,:]) # Excitatory adaptation [nA]
-
-                        
+                for bval in self.bvals: # Loop through all b_values
+                    '''load result'''
+                    sim_name = f'b{bval}_stim{stim_val}_{roi}'
+                    self.sim_names.append(sim_name)
+                    print ('... loading file: ' + sim_name)       
+                    result = tools.get_result(self.root_folder + "/" + sim_name, self.cut_transient, self.run_sim)[0]
+                    self.time_s = result[0] * 1e-3 # From ms to sec
+                    self.FR_exc.append(result[1][:,0,:] * 1e3) # From KHz to Hz; Excitatory firing rate
+                    self.FR_inh.append(result[1][:,1,:] * 1e3) # From KHz to Hz; Inhibitory firing rate
+                    self.Ad_exc.append(result[1][:,5,:]) # Excitatory adaptation [nA]  
+                    
+     
+        
     def plot_simulation(self, target_region_name):
         '''
         Plot the result of the simulation on a targeted area.
-        
+
         param target_region_name (str): Name of the target area to plot
         '''
         # Plot simulation results of selected brain regions for each interStimulusInterval value:
-        fig, axes = plt.subplots(len(self.interstim_Ts)*len(self.stimvals), 2, figsize=(16, 8))
+        total_sim_nb = len(self.stimvals)
+        fig, axes = plt.subplots(nrows=total_sim_nb, ncols=2, figsize=(16, 8))
+        if total_sim_nb == 1:
+            axes = np.array([axes])
         plt.rcParams.update({'font.size': 14})
-        simnum = 0
-        target_region_id = self.surface_instance.id_finder(target_region_name)
-        for stimval in self.stimvals:
-            for interstim_T in self.interstim_Ts: 
-                    Li = axes[simnum, 0].plot(self.time_s, self.FR_inh[simnum][:, target_region_id], 
-                                              color = 'darkred') #[times, regions]
-                    Le = axes[simnum, 0].plot(self.time_s, self.FR_exc[simnum][:, target_region_id], 
-                                              color = 'SteelBlue') #[times, regions]
-                    axes[simnum, 0].set_xlabel('Time (s)')
-                    axes[simnum, 0].set_ylabel('Firing rate (Hz)')
-#                     axes[simnum, 0].set_title(f'{target_region_name} with interstim {interstim_T} and stimval {stimval}')
-                    axes[simnum, 0].set_title(f'{target_region_name} with stimval {stimval}')
-
-                    axes[simnum, 0].set_ylim([0, 100])
-                    axes[simnum, 0].legend([Li[0], Le[0]], ['Inh.','Exc.'], loc = 'best')
-                    axes[simnum, 1].plot(self.time_s, self.Ad_exc[simnum][:, target_region_id], color = 'goldenrod') #[times, regions]
-                    axes[simnum, 1].set_xlabel('Time (s)')
-                    axes[simnum, 1].set_ylabel('Adaptation (nA)')
-                    for ax in axes.reshape(-1):
-                        ax.set_xlim([3,5])
-                        ax.set_xticks([3,3.5,4,4.5,5])
-                    simnum += 1
+        target_region_id = self.surface_instance.id_finder(target_region_name)  
+        
+        for sim_nb in range(total_sim_nb):
+            # This dynamically updates ylim
+            inh_signal = self.FR_inh[sim_nb][:, target_region_id]
+            exc_signal = self.FR_exc[sim_nb][:, target_region_id]
+            self.update_ylim(find_max_value(inh_signal, exc_signal)) 
+            
+        for sim_nb in range(total_sim_nb):
+            inh_signal = self.FR_inh[sim_nb][:, target_region_id]
+            exc_signal = self.FR_exc[sim_nb][:, target_region_id]
+            ax_fr, ax_ad = axes[sim_nb, 0], axes[sim_nb, 1]
+            ax_fr.plot(self.time_s, inh_signal, color='darkred')
+            ax_fr.plot(self.time_s, exc_signal, color='SteelBlue')
+            ax_fr.set_xlabel('Time (s)')
+            ax_fr.set_ylabel('Firing rate (Hz)')
+            ax_fr.set_title(f'{target_region_name} with stimval {self.stimvals[sim_nb]}')
+            ax_fr.set_ylim([0, self.ylim + 20])
+            ax_fr.legend(['Inh.', 'Exc.'], loc='best')
+            ax_ad.plot(self.time_s, self.Ad_exc[sim_nb][:, target_region_id], color='goldenrod')
+            ax_ad.set_xlabel('Time (s)')
+            ax_ad.set_ylabel('Adaptation (nA)')
+            for ax in [ax_fr, ax_ad]:
+                ax.set_xlim([3, 5])
+                ax.set_xticks([3, 3.5, 4, 4.5, 5])
+                
         plt.tight_layout()
-        plt.show()        
-
+        plt.show()

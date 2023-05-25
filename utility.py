@@ -1,5 +1,7 @@
 import zipfile
 import os
+from sklearn.metrics import mean_squared_error
+import numpy as np
 
 def toZip(folder_path, zip_path):
     '''
@@ -15,15 +17,28 @@ def toZip(folder_path, zip_path):
                 zipf.write(file_path, os.path.relpath(file_path, folder_path))
                 
                 
-def classify_signal(signal, threshold = 80):
+def are_signals_similar(series1, series2, threshold = None):
     '''
-    Binary classifier of a signal given a threshold. 
+    Compare two timeseries using MSE given as threshold
     
-    param signal (matrix): the timeserie signal (exc or inh) 
-    param threhold (int): threshold from which the signal is considered coming 
-    from the strong audio stimulus i.e. with the higher stimval
+    param series1 (array): inh or exb timeseries i.e result of a TVB simulation
+    param series2 (array): inh or exb timeseries i.e result of a TVB simulation
+    threshold (int): if set to None, this function will only print MSE result.
+    This helps to have a range of value to set the threshold
     '''
-    if any(value > threshold for value in signal):
-        print('probably strong audio stimulus (stimval=2)')
+    mse = mean_squared_error(series1, series2)
+    if threshold is not None:
+        if np.sqrt(mse) <= threshold:
+            return 1
+        else:
+            return 0
     else:
-        print('probably weak audio stimulus (stimval=1e-3)')
+        print("MSE:", np.sqrt(mse))    
+        
+def find_max_value(timeseries1, timeseries2):
+    # Combine the two time series
+    combined_series = timeseries1 + timeseries2
+    # Find the maximum value
+    max_value = max(combined_series)
+    return max_value
+        
