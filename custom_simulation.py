@@ -12,13 +12,12 @@ class CustomSimulation:
         This is a custom simulation class that helps to minimise the amount of code in the main ipynb file when
         running multiple simulation with different paramaters. 
         It loops through rois_dict, stim_values, b_values and interstimulus_T_values. It also has built-in plot functions.
+        
         param root_folder (str): Relative path of the result folder.
         param surface_instance (SurfacePreparer Obj): instance of the SurfacePreparer class.
         param rois_dict (dict): dictionnary of regions of interest where to input the stimulus.
         param_stim_values (list): list of stimulus strength (in Hz ?).
         param b_values (list): list of b_values which are frequency adapatation parameter.
-        param internstimulus_T_values (list): list of interstimulus_T values in [ms]. 
-        interstimulus_T values is set to 1e9 by default to ensure that only one stimulus is simulated.
         paramm isIntNoise (bool): False to disable integrator noise which is 
         'nsig':[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0] by default.
         param isWeightNoise (bool) : False to disable weigth noise in the model. Default: 1e-4
@@ -39,7 +38,7 @@ class CustomSimulation:
         self.bvals = b_values # List of values of adaptation strength which will vary the brain state
         self.simname = ['b5']
         self.stimvals = stim_values # Stimulus strength  ,1e-4, 1e-3
-        self.interstim_T = [1e9] # Interstimulus interval [ms]
+        self.interstim_T = [1e9] # Interstimulus interval [ms] to ensure that only one stimulus is simulated.
         self.ROIs = list(rois_dict.keys())
         self.isIntNoise = isIntNoise
         self.isWeightNoise = isWeightNoise
@@ -60,11 +59,25 @@ class CustomSimulation:
                               parameters.parameter_integrator,
                               parameters.parameter_monitor)
     
+    
     def update_ylim(self, ylim):
+        '''
+        Update the y axe maximum value to make simulation plots more uniform and readable.
+        The main idea behind is to save the max value of a firing rate accross simulation.
+        Then to plot every plots (if any) with different stimvalues on the same y-axis scale.
+        
+        param ylim (int):  
+        '''
         if ylim > self.ylim: 
             self.ylim = ylim
          
+        
     def get_signals(self, target_id):
+        '''
+        Get all inh signals from a targetted area and map them in a dict according to the stimval used.
+        
+        param target_id (int): are id from where to get signals.
+        '''
         time_series_dict = {}
         for i, stimval in enumerate(self.stimvals):
             time_series_dict[stimval] = self.FR_inh[i][:, target_id]
@@ -74,6 +87,8 @@ class CustomSimulation:
     def update_simulator_param(self, stim_param):
         '''
         Re-update the default simulator
+        
+        param stim_param (parameter_stimulus object)
         '''
         return tools.init(parameters.parameter_simulation,
                                parameters.parameter_model,

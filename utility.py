@@ -35,6 +35,7 @@ def are_signals_similar(series1, series2, threshold = None):
     else:
         print("MSE:", np.sqrt(mse))    
         
+        
 def find_max_value(timeseries1, timeseries2):
     '''
     Find and return the max value from both timeseries1 and timeseries2.
