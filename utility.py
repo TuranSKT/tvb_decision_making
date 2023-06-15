@@ -47,5 +47,5 @@ def find_max_value(timeseries1, timeseries2):
     combined_series = timeseries1 + timeseries2
     # Find the maximum value
     max_value = max(combined_series)
-    return max_value
+    return max_value[0]
         

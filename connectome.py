@@ -32,11 +32,6 @@ class Connectome:
                                         region_map_filename = regmap_name)
     
     
-=======
-        self.surface_instance = surface_instance
-        self.conn_path = conn_path
-        self.new_conn_path = new_conn_path
->>>>>>> ee9d87b7f58f66e8774e0f153e2e84c64758e3eb
     
     def get_features(self):
         '''
@@ -44,7 +39,6 @@ class Connectome:
         '''
         return self.weights, self.tract_lengths, self.centers
     
-<<<<<<< HEAD
     def get_connectivity(self):
         '''
         Return in TVB in-built connectivity object.
@@ -71,23 +65,14 @@ class Connectome:
 
     
     def duplicate_region(self, region_name):
-=======
-    
-    def duplicate_region(self, region_index):
->>>>>>> ee9d87b7f58f66e8774e0f153e2e84c64758e3eb
         '''
         Duplicate column and row where a given area occurs.
         Weight are divided/2 to ensure cohesion of the connectivity matrix.
         
-<<<<<<< HEAD
         param region_name (str): region's name on which to perform duplication.
         '''
         region_index = self.id_finder([region_name])[0]
 
-=======
-        param region_idx (int): region's index on which to perform duplication.
-        '''
->>>>>>> ee9d87b7f58f66e8774e0f153e2e84c64758e3eb
         # Reduce dedicated weights by 2 
         self.weights[region_index, :] /= 2
         self.weights[:, region_index] /= 2
@@ -98,7 +83,6 @@ class Connectome:
         self.tract_lengths = np.insert(self.tract_lengths, region_index, self.tract_lengths[region_index], axis=0)
         self.tract_lengths = np.insert(self.tract_lengths, region_index, self.tract_lengths[:, region_index], axis=1)
         self.centers = np.insert(self.centers, region_index, self.centers[region_index], axis=0)
-<<<<<<< HEAD
         
 
         # Rename <region_name> to <region_name_a> and <region_name_b> in the Connectome
@@ -137,25 +121,3 @@ class Connectome:
             
         if delete_temp_folder: # Delete tmp created folder
             shutil.rmtree(new_conn_path)
-=======
-
-        # Rename <region_name> to <region_name_a> and <region_name_b> in the Connectome
-        self.centers[region_index][0] = f'{self.surface_instance.region_name_finder(region_index)}a'
-        self.centers[region_index + 1][0] = f'{self.surface_instance.region_name_finder(region_index)}b'
-        
-    def save_changes(self):
-        '''
-        Save changes in the dedicated new_conn_path and compress it into a .zip file.
-        '''
-        # Create the new folder
-        os.makedirs(self.new_conn_path, exist_ok=True)
-
-        # Save edited files
-        np.savetxt(self.new_conn_path + 'new_weights.txt', self.weights)
-        np.savetxt(self.new_conn_path + 'new_tract_lengths.txt', self.tract_lengths)
-        np.savetxt(self.new_conn_path + 'new_centers.txt', self.centers, fmt='%s')
-
-        # Compress the new folder into a zip file
-        zip_path = self.new_conn_path[:-1] + '.zip' if self.new_conn_path.endswith('/') else self.new_conn_path + '.zip'
-        toZip(self.new_conn_path, zip_path)
->>>>>>> ee9d87b7f58f66e8774e0f153e2e84c64758e3eb
