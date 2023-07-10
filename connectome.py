@@ -64,30 +64,37 @@ class Connectome:
         return [self.centers[i][0] for i in region_ids]
 
     
-    def duplicate_region(self, region_name):
+    def duplicate_region(self, region_name, auto_corr_percentage = 0.5):
         '''
         Duplicate column and row where a given area occurs.
         Weight are divided/2 to ensure cohesion of the connectivity matrix.
         
         param region_name (str): region's name on which to perform duplication.
+        param auto_corr_percentage (float): increase/decrease the weight of A-A and B-B and update A-B and B-A accordingly.
         '''
-        region_index = self.id_finder([region_name])[0]
+        idx = self.id_finder([region_name])[0]
 
         # Reduce dedicated weights by 2 
-        self.weights[region_index, :] /= 2
-        self.weights[:, region_index] /= 2
+        self.weights[idx, :] /= 2
+        self.weights[:, idx] /= 2
         
         # Duplicate column/row where region_idx occurs
-        self.weights = np.insert(self.weights, region_index, self.weights[region_index], axis=0)
-        self.weights = np.insert(self.weights, region_index, self.weights[:, region_index], axis=1)
-        self.tract_lengths = np.insert(self.tract_lengths, region_index, self.tract_lengths[region_index], axis=0)
-        self.tract_lengths = np.insert(self.tract_lengths, region_index, self.tract_lengths[:, region_index], axis=1)
-        self.centers = np.insert(self.centers, region_index, self.centers[region_index], axis=0)
+        self.weights = np.insert(self.weights, idx, self.weights[idx], axis=0)
+        self.weights = np.insert(self.weights, idx, self.weights[:, idx], axis=1)
         
+        total_weight = self.weights[idx, idx] + self.weights[idx+1, idx] 
+        auto_corr = total_weight * auto_corr_percentage
+        cross_corr = total_weight - auto_corr
+        self.weights[idx, idx], self.weights[idx+1, idx+1] = auto_corr, auto_corr #change auto-correlogram
+        self.weights[idx+1, idx], self.weights[idx, idx+1] = cross_corr, cross_corr #change cross-correlogram
+        
+        self.tract_lengths = np.insert(self.tract_lengths, idx, self.tract_lengths[idx], axis=0)
+        self.tract_lengths = np.insert(self.tract_lengths, idx, self.tract_lengths[:, idx], axis=1)
+        self.centers = np.insert(self.centers, idx, self.centers[idx], axis=0)
 
         # Rename <region_name> to <region_name_a> and <region_name_b> in the Connectome
-        self.centers[region_index][0] = f'{region_name}a'
-        self.centers[region_index + 1][0] = f'{region_name}b'
+        self.centers[idx][0] = f'{region_name}a'
+        self.centers[idx + 1][0] = f'{region_name}b'
         
     def set_weight(self, region_name1, region_name2, weight_val):
         '''
